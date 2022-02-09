@@ -7,7 +7,7 @@ A) NY Source Data from: https://data.nysed.gov/downloads.php:
 - 3-8_ELA_AND_MATH_RESEARCHER_FILE_2018.csv  
 - 3-8_ELA_AND_MATH_RESEARCHER_FILE_2019.xlsx  (saved as .cvs to use)  
 (No State 2020 data available due to COVID)  
-- 3-8_ELA_AND_MATH_RESEARCHER_FILE_2021.xlsx  (saved as .cvs to use)
+- 3-8_ELA_AND_MATH_RESEARCHER_FILE_2021.xlsx  (saved as .cvs to use)  
 (Too large to add to github folder, though)   
   
 B) File of Counties with associated BEDSCODES (being not a required field of NY Source Data/some missing)  
