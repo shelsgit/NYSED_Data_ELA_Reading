@@ -1,0 +1,177 @@
+---
+title: "New York - Reading Report Card"
+output: 
+html_document: default
+
+---
+```{r include = FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(knitr)
+library(kableExtra)
+library(flexdashboard)
+library(WDI)
+library(tidyverse)
+library(plotly)
+library(crosstalk)
+library(ggthemes)
+library(dplyr)
+library(janitor) # for get_dupes funct
+library(webshot) # for .pdf output, from install.packages("webshot"), webshot::install_phantomjs()
+
+
+############################################################
+######  CHANGE INFO FOR CHART HERE ######
+YEAR <-  "2016"                         # School Year (Ending,2016-present). No 2020 due to COVID
+
+COHORT <- 15                            #15=Econ Disadvantages, 11=Students With Disabilities, 
+                                             # 1=All, 6 = Hispanic
+#COUNTIEStxt <- c('Nassau','Suffolk')    # County.  Must match shareddata, don't capitalize 
+#COUNTIEStxt <- c('Nassau')              # so it looks nicer on webpage 
+COUNTIEStxt <- c('Monroe')
+                                             
+############################################################
+## Makes COHORT text nice for webpage
+if (COHORT == 15) {
+COHORTtxt <- "Economically Disadvantaged, Grade:3"
+} else if ( COHORT == 11) {
+COHORTtxt <- "Students With Disabilities, Grade:3"
+} else {
+COHORTtxt <- "ERROR, Invalid Cohort Selected"
+}
+# Makes COUNTIES Selected Capitalized for query
+COUNTIES <- toupper(COUNTIEStxt[])   # not sure why this is needed but it is
+
+############################################################
+## Import Data
+data_read <- read.csv("SOURCEDATA_ALLDistrictsGrades.csv")  #[,c(1,3,4,5,6,7,9,10,11,12,13,14,24)]
+shared_data <- data_read
+
+#################### Changeable Data Stuff   ##########
+# Keep 3rd Grade ELA data 
+shared_data<-shared_data[( shared_data$ITEM_DESC == "Grade 3 ELA"),]
+
+# Keep Select Subgroup (selection made at top of program)
+shared_data<-shared_data[( shared_data$SUBGROUP_CODE == COHORT),] 
+
+# Keep Select Counties (selection made at top of program)
+shared_data<- shared_data[shared_data$COUNTY_DESC %in% COUNTIES,]  #Selected Counties
+
+# Keep Selected year (selection made at top of program) (this report is for 1 year report card)
+shared_data<-shared_data[(shared_data$SY_END_DATE == YEAR),]
+
+# Only Keep Districts that tested 10 or more students in the chosen cohort:
+shared_data<-shared_data[(shared_data$TOTAL_TESTED > 9),]
+
+#######################################################################
+# Get rid of NA Prof rates, and sort by Prof rate
+shared_data <- shared_data %>% 
+  filter(!is.na(L3.L4_PCT)) %>% 
+  dplyr::arrange(L3.L4_PCT) 
+
+# Create NotProf column (=100 - %Proficient)
+notprof <- function(x, na.rm = TRUE) {  
+( 100 - x ) }
+shared_data$NotProf <- sapply(shared_data$L3.L4_PCT, notprof)
+
+```
+#### Year: `r YEAR`  
+#### County: `r paste(COUNTIEStxt, collapse=", ")`
+<!-- #### Cohort: `r COHORTtxt`   -->
+```{r plotly-crosstalk, echo = FALSE, message = FALSE, warning = FALSE}
+
+# Define Font for Title Bar
+t1 <- list(
+  family = "Arial",
+  color = "black",
+  size = 14
+)
+
+NumDistricts <- nrow(shared_data)
+
+# For vertical line on plot, at 95%, the amount of kids capable of reading
+vline <- function(x = 0) {
+  list(
+    type = "line", 
+    y0 = 0, 
+    y1 = 1, 
+    yref = "paper",
+    x0 = x, 
+    x1 = x, 
+    line = list(color = "black", dash = "dash", annotation_text="95%")  #could use 'dotted instead of dash
+  )
+}
+# For Text by verticle line
+m <- shared_data[which.max(shared_data$L3.L4_PCT), ]
+a <- list(
+  x = 95,
+  y = m$NAME,
+  text = "95%",
+  xref = "x",
+  yref = "y",
+  showarrow = TRUE,
+  arrowhead = 0,
+  ax = 20,
+  ay = -20
+)
+
+# Make Plot, for Nassau, make bars skinnier with: height = nrow(shared_data)*22
+fig <- plot_ly(shared_data, x = ~L3.L4_PCT, y = ~NAME, type = 'bar', orientation = 'h', name = '% Proficient', width = 900, height = nrow(shared_data)*25, 
+               # marker sets bar color, could also be used to change the plot's hover info with ~paste("SomeText",~var) 
+                      marker = list(color = 'rgba(24,161,205, 1)', #blue
+                              line = list(color = 'green',
+                              width = 1))) %>%
+  
+        add_annotations(
+                  x = ~L3.L4_PCT,
+                  y = ~NAME,
+                  text = paste0(shared_data$L3.L4_PCT, "%        "),
+                  xref = "x",
+                  yref = "y",
+                  font = list(
+                          color = "white", size = 10),
+                  showarrow = FALSE
+                  ) %>%
+                  
+  # Adds second part of stacked bar
+      add_trace(x = ~NotProf, name = '% Not Proficient',
+                marker = list(color = 'rgba(215, 49, 41, 1)',  #red
+                        line = list(color = 'green',
+                        width = 1)),
+                        text = shared_data$TOTAL_TESTED,
+                        texttemplate = "(%{text})",
+                        #textfont = list(family= "Times", size= c(18, 21, 20), color=,
+                        textfont = list(size= 10),
+                        textposition = 'outside') %>%
+  
+  # set axis and plot display
+      layout(barmode = 'stack',
+              xaxis = list(title = ""),
+              yaxis = list(title = "", 
+                       categoryorder = "array", 
+                       categoryarray = shared_data$L3.L4_PCT, 
+                       tickangle=0,
+                       ticksuffix = " "),
+              legend = list(orientation = "h",   # show entries horizontally
+                        xanchor = "center",  # use center of legend as anchor
+                        x = 0.5, y=100),     # put legend in center of x-axis, near top
+              bargap = 5,
+              shapes = list(vline(95)), # add vertical line
+              annotations = a,  # 95% text by line
+              title = list(text='<i><b>\n>95% of ALL People Are Capable of Reading</i></b>', font = t1, x = 0.75, y= .92)  # yanchor = 'top'
+             ) %>% 
+  
+  # Get rid of Plotly Bar
+      config(displayModeBar = F)  
+
+fig
+
+```
+# References, Notes:  
+
+* Data from: [NY State Report Card](https://data.nysed.gov/downloads.php)  
+* Students Included: 3rd graders, "Economically Disadvantaged" - [Why?](https://www.careads.org/why-these-students) 
+* Districts Included: Those which tested => 10 Students. Total tested is in ().   
+* Total Districts: `r NumDistricts`  
+
+
