@@ -26,4 +26,4 @@ NYSED Data (from: https://data.nysed.gov/downloads.php, but files too large to a
 - 'R_Scripts_MakeReports' folder, with each R file
 
 ### Reading Reports (R Output - HTML or .pdf):
-- One folder per Report Report (with sammple output reports)
+- One folder per Reading Report type (with sammple output reports)
