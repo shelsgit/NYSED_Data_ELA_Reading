@@ -9,7 +9,7 @@ NYSED Data (from: https://data.nysed.gov/downloads.php, but files too large to a
 - 3-8_ELA_AND_MATH_RESEARCHER_FILE_2021.xlsx  (saved as .cvs to use)  
 <br></br>
 
-## SOURCE DATA folder/files:
+## SOURCE DATA folder contains:
 ### File of Counties with associated BEDSCODES (being not a required field of NY Source Data/some missing)  
 - BEDSCODE_County.csv  
 
@@ -20,12 +20,10 @@ NYSED Data (from: https://data.nysed.gov/downloads.php, but files too large to a
 - SOURCEDATA_ALLDistrictsGrades.csv  
 <br></br>
 
-## Reading Report Card folder/files:
+## REPORTS folder contains:
 
-### R MARKDOWN (to create HTML Report)
-- ReadingReportCard_County_HorizBarGraph.Rmd  
-(Change County and Year Selection near top, that you want)
+### R Scripts/Markdown files (to create various Reading Reports):
+- 'R_Scripts_MakeReports' folder, with each R file
 
-### Example Reading Report Card (R Markdown HTML output):
-- ReadingReportCard_County_HorizBarGraph.html
-- .pdf of Report: New York - Reading Report Card - 2019, NASSAU.pdf
+### Reading Reports (R Output - HTML or .pdf):
+- One folder per Report Report (with sammple output reports)
