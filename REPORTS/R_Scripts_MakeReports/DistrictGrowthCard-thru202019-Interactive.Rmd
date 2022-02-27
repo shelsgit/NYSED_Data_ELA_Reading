@@ -1,0 +1,178 @@
+---
+title: "Reading Proficiency Growth"
+output:
+  html_document: default
+  # pdf_document: default
+---
+```{r include = FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(knitr)
+library(kableExtra)
+library(flexdashboard)
+library(WDI)
+library(tidyverse)
+library(plotly)
+library(crosstalk)
+library(ggthemes)
+library(dplyr)
+library(janitor) #for get_dupes funct
+
+############################################################
+######  COHORTS plotted  ######
+
+COHORT <- c(1, 15, 11)                       #15=Econ Disadvantages, 11=Students With Disabilities, 
+                                             # 1=All, 6 = Hispanic
+############################################################
+
+## Import Data
+data_read <- read.csv("SOURCEDATA_ALLDistrictsGrades.csv")  #[,c(1,3,4,5,6,7,9,10,11,12,13,14,24)]
+shared_data <- data_read
+shared_data$BEDSCODE <- format(shared_data$BEDSCODE, scientific = FALSE)
+
+#################### Changeable Data Stuff   ##########
+# Keep Select Subgroup (selection made at top of program)
+shared_data<-shared_data[( shared_data$SUBGROUP_CODE %in% COHORT),] 
+
+# Keep All districts
+# shared_data<-shared_data[( shared_data$NAME == NAME),] 
+
+# For this report, I want: 2016-3rd grade, 2017-4th, 2018-5th, 2019-6th, 2021-8th
+shared_data <- shared_data[((shared_data$SY_END_DATE == 2016) & (shared_data$ITEM_DESC == "Grade 3 ELA")) |
+                           ((shared_data$SY_END_DATE == 2017) & (shared_data$ITEM_DESC == "Grade 4 ELA")) |
+                           ((shared_data$SY_END_DATE == 2018) & (shared_data$ITEM_DESC == "Grade 5 ELA")) |
+                           ((shared_data$SY_END_DATE == 2019) & (shared_data$ITEM_DESC == "Grade 6 ELA")), ]
+
+## Make new cols, to plot - All, All_Tested, SWD, SWD_Tested, EconDis, EconDis_Tested
+Students_ALL <- shared_data[shared_data$SUBGROUP_CODE == 1,]
+plot_data <-  Students_ALL[,c(2,7,10,11,6)]
+colnames(plot_data)[colnames(plot_data)=='L3.L4_PCT'] <- "All"
+colnames(plot_data)[colnames(plot_data)=='TOTAL_TESTED'] <- "All_Tested"
+
+# Make new indexable col with NAME and Grade
+plot_data$NameGrade <- paste0(plot_data$NAME, plot_data$ITEM_DESC)
+  
+# Add cols for SWD
+Students_SWD <- shared_data[shared_data$SUBGROUP_CODE == 11,]
+Students_SWD$NameGrade <- paste0(Students_SWD$NAME, Students_SWD$ITEM_DESC)
+Students_SWD <- Students_SWD[,c(10:12)]
+colnames(Students_SWD)[colnames(Students_SWD)=='L3.L4_PCT'] <- "SWD"
+colnames(Students_SWD)[colnames(Students_SWD)=='TOTAL_TESTED'] <- "SWD_Tested"
+# Add them to plot_data
+plot_data <-merge(plot_data, Students_SWD, by="NameGrade", all = TRUE, nodups=FALSE )
+
+# Add cols for Economically Disadvantaged Students
+Students_EconDis <- shared_data[shared_data$SUBGROUP_CODE == 15,]
+Students_EconDis$NameGrade <- paste0(Students_EconDis$NAME, Students_EconDis$ITEM_DESC)
+Students_EconDis <- Students_EconDis[,c(10:12)]
+colnames(Students_EconDis)[colnames(Students_EconDis)=='L3.L4_PCT'] <- "EconDis"
+colnames(Students_EconDis)[colnames(Students_EconDis)=='TOTAL_TESTED'] <- "EconDis_Tested"
+# Add them to plot_data
+plot_data <-merge(plot_data, Students_EconDis, by="NameGrade", all = TRUE, nodups=FALSE )
+
+# Change Year data, so plot looks good
+plot_data$Year <- paste(plot_data$SY_END_DATE, plot_data$ITEM_DESC, sep="\n")
+plot_data$Year <- str_replace(plot_data$Year, " ELA", "")
+plot_data <- plot_data[,-c(1:2)]
+
+# Add cols to be used for plot annotations in bars
+# text_All <- paste0(plot_data$All, "%\n", "(",  plot_data$All_Tested, ")")
+# text_SWD <- paste0(plot_data$SWD, "%\n", "(",  plot_data$SWD_Tested, ")")
+# text_EconDis <- paste0(plot_data$EconDis, "%\n", "(",  plot_data$EconDis_Tested, ")")
+text_All <- paste0(plot_data$All, "%\n(",  plot_data$All_Tested, ")")
+text_SWD <- paste0(plot_data$SWD, "%\n(",  plot_data$SWD_Tested, ")")
+text_EconDis <- paste0(plot_data$EconDis, "%\n(",  plot_data$EconDis_Tested, ")")
+
+```
+#### &nbsp;  
+```{r plotly-crosstalk, echo = FALSE, message = FALSE, warning = FALSE}
+
+# Define Font for Title Bar
+t1 <- list(
+  family = "Arial",
+  color = "black",
+  size = 14
+)
+
+# For Text by verticle line
+m <- shared_data[which.max(shared_data$L3.L4_PCT), ]
+a <- list(
+  x = 95,
+  y = m$NAME,
+  text = "95%",
+  xref = "x",
+  yref = "y",
+  showarrow = TRUE,
+  arrowhead = 0,
+  ax = 20,
+  ay = -20
+)
+
+## Make Interactive
+# sd <- highlight_key(shared_data)  #adding, ~NAME stops the checkbox filter from working
+sd <- SharedData$new(plot_data)
+
+## Make Interactive Filters
+user_filts <- filter_select("filter", "Select District:", sd, ~NAME, multiple = FALSE) #Variable is 'group by'
+
+# Config annotation text - inside bar (preferred), or if on top (if bar too short to fit it)
+textp_All <- "outside"
+textp_SWD <- "outside"
+textp_EconDis <- "outside"
+# if (sd$All < 10){textp_All <- "outside"}
+# if (sd$SWD < 10){textp_SWD <- "outside"}
+# if (sd$EconDis < 10){textp_EconDis <- "outside"}
+
+## Make Plot
+fig <- plot_ly(sd, x = ~Year, y = ~All, type = 'bar', name = 'All Students', width = 950,
+               text = ~text_All,
+               textposition = textp_All, 
+               textfont = list(color="black", size = 8)
+               ) %>%
+  
+        add_trace(y = ~SWD, name = 'Students with Disabilities',
+                  text = ~text_SWD,
+                  textposition = textp_SWD, 
+                  textfont = list(color="black", size = 8)
+                  ) %>%
+  
+        add_trace(y = ~EconDis, name = 'Economically Disadvantaged',
+                  text = ~text_EconDis, 
+                  textposition = textp_EconDis, 
+                  textfont = list(color="black",size = 8)
+                  ) %>%
+  
+        layout(
+               yaxis = list(title = '% Proficienct', range=c(0,100), showline=TRUE),
+               xaxis = list(title = ''),
+               barmode = 'group',
+               shapes =list(type="line",
+                      xref="paper", yref="paper",
+                      x0=0, y0=0.95,
+                      x1=1, y1=0.95,
+                      line=list(color="maroon", width=2, dash='dashdot')),
+               title = list(text='<i><b>\n>95% of Students are Capable of Reading at Grade Level</i></b>',       
+                             font = t1, x = 0.4, y= 98),
+               barmode = 'group', bargap = 0.15
+        ) %>%
+
+        config(displayModeBar = F) # Get rid of Plotly Bar 
+
+## Make plot with select filter
+# Total page width=12, so filter on the top, plot fig under it
+bscols(widths = 12, user_filts, fig) 
+
+```
+# References, Notes:  
+
+* Data from: [NY State Report Card](https://data.nysed.gov/downloads.php)  
+* Total # students tested, in each cohort, is in ()  
+```{js}
+
+function filter_default(){
+  document.getElementById("filter").getElementsByClassName("selectized")[0].selectize.setValue("ANDES CSD",false) 
+}
+    
+$(document).ready(filter_default);
+
+```
