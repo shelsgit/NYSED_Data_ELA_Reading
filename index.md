@@ -1,3 +1,12 @@
+---
+layout: page
+title: "NY Reading Reports"
+subtitle: ">95% of ALL Students are capable of learning to read"
+description: "NY Reading Proficiency Reports (from public NYSED data)"
+hero_image: "/NYSED_Reading/img/ClassRoom_large.jpg"
+hero_height: "is-fullheight"
+---
+
 ## Welcome to GitHub Pages
 
 You can use the [editor on GitHub](https://github.com/shelsgit/NYSED_Reading/edit/gh-pages/index.md) to maintain and preview the content for your website in Markdown files.
